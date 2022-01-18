@@ -1,0 +1,9 @@
+list:
+- account: openfarmercn
+  transfer_wood: 1
+  transfer_food: 1
+  transfer_gold: 1
+- account: 4lrzu.wam
+  transfer_wood: 1
+  transfer_food: 1
+  transfer_gold: 1
