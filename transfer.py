@@ -118,8 +118,8 @@ class Farmer:
         if self.proxy:
             options.add_argument("--proxy-server={0}".format(self.proxy))
 
-        s = Service(plat.driver_path)
-        self.driver = webdriver.Chrome(service=s, options=options)
+        # s = Service(plat.driver_path)
+        self.driver = webdriver.Chrome(plat.driver_path, options=options)
         self.driver.implicitly_wait(60)
         self.driver.set_script_timeout(60)
         self.http = requests.Session()
@@ -395,6 +395,7 @@ def run(config_file: str, transfer_yml: str):
         file.close()
 
     logger.init_loger(user_param.wax_account)
+    log.info("=======批量转账功能=======")
     log.info("项目开源地址：https://github.com/lintan/OpenFarmer")
     log.info("WAX账号: {0}".format(user_param.wax_account))
     utils.clear_orphan_webdriver()
