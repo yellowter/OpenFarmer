@@ -313,6 +313,7 @@ class Farmer:
         self.log.info("begin transact: {0}".format(transaction))
         try:
             success, result = self.driver.execute_script("return window.wax_transact(arguments[0]);", transaction)
+            time.sleep(1)
             if success:
                 self.log.info("transact ok, transaction_id: [{0}]".format(result["transaction_id"]))
                 self.log.debug("transact result: {0}".format(result))
