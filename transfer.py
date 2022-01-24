@@ -257,6 +257,7 @@ class Farmer:
             token.fwg -= item['transfer_gold']
             self.log.info(f"钱包剩余:FWG【{token.fwg}】 FWW【{token.fww}】 FWF【{token.fwf}】 ")
             self.log.info("================================================================")
+            time.sleep(3)
 
         # self.do_transfer(transfer_food, transfer_gold, transfer_wood, account)
         # self.log.info(f"转账：金币【{transfer_gold}】 木头【{transfer_wood}】 食物【{transfer_food}】 ")
