@@ -114,6 +114,8 @@ class Farmer:
         options.add_argument("--disable-extensions")
         options.add_argument("--log-level=3")
         options.add_argument("--disable-logging")
+        options.add_experimental_option('useAutomationExtension', False)
+        options.add_experimental_option('excludeSwitches', ['enable-automation'])
         data_dir = os.path.join(Farmer.chrome_data_dir, self.wax_account)
         options.add_argument("--user-data-dir={0}".format(data_dir))
         if self.proxy:
@@ -147,7 +149,7 @@ class Farmer:
                 Farmer.waxjs = base64.b64encode(Farmer.waxjs.encode()).decode()
         if not Farmer.myjs:
             with open("inject.js", "r") as file:
-                inject_rpc = "window.mywax = new waxjs.WaxJS({rpcEndpoint: '"+user_param.rpc_domain+"'});"
+                inject_rpc = "window.mywax = new waxjs.WaxJS({rpcEndpoint: '" + user_param.rpc_domain + "'});"
                 Farmer.myjs = inject_rpc + file.read()
                 file.close()
 
@@ -398,8 +400,8 @@ class Farmer:
         energy_consumed = crop.energy_consumed
         fake_consumed = Decimal(0)
         if crop.times_claimed == crop.required_claims - 1:
-            # 收获前的最后一次耕作，多需要200点能量，游戏合约BUG
-            fake_consumed = Decimal(200)
+            # 收获前的最后一次耕作，多需要200点能量，游戏合约BUG（玉米需要245）
+            fake_consumed = Decimal(250)
         self.consume_energy(Decimal(energy_consumed), fake_consumed)
         transaction = {
             "actions": [{
@@ -635,7 +637,7 @@ class Farmer:
     def breeding_claim(self, animals: List[Animal]):
 
         for item in animals:
-            self.log.info("【繁殖】正在喂[{0}]: [{1}]".format(item.name, item.show(False,True)))
+            self.log.info("【繁殖】正在喂[{0}]: [{1}]".format(item.name, item.show(False, True)))
             feed_asset_id = self.get_animal_food(item)
             if not feed_asset_id:
                 return False
@@ -823,6 +825,7 @@ class Farmer:
         else:
             self.log.info("配置不执行购买，请检查")
 
+        time.sleep(2)
         return True
 
     # 市场购买
@@ -1067,8 +1070,23 @@ class Farmer:
                 self.log.warning("尚未支持的工具类型:{0}".format(item))
         return tools
 
-    # 使用工具挖矿操作
+    # 使用工具挖矿操作1
     def claim_mining(self, tools: List[Tool]):
+        enough_tools = []
+        not_enough_tools = []
+        for item in tools:
+            check_status = self.check_durability(item)
+            if check_status:
+                enough_tools.append(item)
+            else:
+                not_enough_tools.append(item)
+        # 耐久度够的先处理
+        self.do_mining(enough_tools)
+        # 耐久度不够的后处理
+        self.do_mining(not_enough_tools)
+
+    # 使用工具挖矿操作2
+    def do_mining(self, tools: List[Tool]):
         for item in tools:
             self.log.info("正在采矿: {0}".format(item.show()))
             self.consume_energy(Decimal(item.energy_consumed))
@@ -1120,21 +1138,30 @@ class Farmer:
 
         if r.wood <= user_param.fww_min:
             deposit_wood = user_param.deposit_fww
-            if self.token.fww < deposit_wood:
-                self.log.info(f"fww不足，请先购买{deposit_wood}个fww代币")
+            if 0 < self.token.fww < deposit_wood:
+                deposit_wood = self.token.fww
+                self.log.info(f"fww不足，剩余{deposit_wood}个fww代币将全部充值")
+            else:
+                self.log.info(f"fww为0，请先购买{deposit_wood}个fww代币")
                 return False
         if r.gold <= user_param.fwg_min:
             deposit_gold = user_param.deposit_fwg
-            if self.token.fwg < deposit_gold:
-                self.log.info(f"fwg不足，请先购买{deposit_gold}个fwg代币")
+            if 0 < self.token.fwg < deposit_gold:
+                deposit_gold = self.token.fwg
+                self.log.info(f"fwg不足，剩余{deposit_gold}个fwg代币将全部充值")
+            else:
+                self.log.info(f"fwg为0，请先购买{deposit_gold}个fwg代币")
                 return False
         if r.food <= user_param.fwf_min:
             deposit_food = user_param.deposit_fwf
-            if self.token.fwf < deposit_food:
-                self.log.info(f"fwf不足，请先购买{deposit_food}个fwf代币")
+            if 0 < self.token.fwf < deposit_food:
+                deposit_food = self.token.fwf
+                self.log.info(f"fwf不足，剩余{deposit_food}个fwf代币将全部充值")
+            else:
+                self.log.info(f"fwf为0，请先购买{deposit_food}个fwf代币")
                 return False
         if deposit_wood + deposit_food + deposit_gold == 0:
-            self.log.info("无需充值")
+            self.log.info("充值数量为0，无需充值")
         else:
             self.do_deposit(deposit_food, deposit_gold, deposit_wood)
             self.log.info(f"充值：金币【{deposit_gold}】 木头【{deposit_wood}】 食物【{deposit_food}】 ")
@@ -1238,12 +1265,17 @@ class Farmer:
         self.log.info("正在恢复能量: 【{0}】点 ".format(count))
         need_food = count // Decimal(5)
         if need_food > self.resoure.food:
-            if self.resoure.food == 0:
-                self.log.error(f"食物不足，仅剩【{self.resoure.food}】，兑换能量【{count}】点需要【{need_food}】个食物，请手工处理")
+            if self.resoure.food <= 0:
+                # 食物不足，开启充值
+                if user_param.auto_deposit:
+                    self.log.info("食物不足，开启充值")
+                    self.scan_deposit()
+                else:
+                    self.log.info(f"食物不足，未开启充值，仅剩【{self.resoure.food}】，兑换能量【{count}】点需要【{need_food}】个食物，请手工处理")
                 raise FarmerException("没有足够的食物，请补充食物，稍后程序自动重试")
             else:
                 count = self.resoure.food * Decimal(5)
-                self.log.error(f"食物不足，仅剩【{self.resoure.food}】，只能补充【{count}】点能量")
+                self.log.info(f"食物不足，剩余【{self.resoure.food}】肉将全部补充能量，可补充【{count}】点")
 
         transaction = {
             "actions": [{
@@ -1278,14 +1310,21 @@ class Farmer:
 
     # 消耗耐久度 （操作前模拟计算）
     def consume_durability(self, tool: Tool):
-        if tool.current_durability / tool.durability < (user_param.min_durability / 100):
-            self.log.info(f"工具耐久不足{user_param.min_durability}%")
-            self.repair_tool(tool)
-        elif tool.current_durability >= tool.durability_consumed:
+        check_status = self.check_durability(tool)
+        if check_status:
             return True
         else:
             self.log.info("工具耐久不足")
             self.repair_tool(tool)
+
+    # 判断耐久度 （操作前模拟计算）
+    def check_durability(self, tool: Tool):
+        if tool.current_durability / tool.durability < (user_param.min_durability / 100):
+            return False
+        elif tool.current_durability < tool.durability_consumed:
+            return False
+        else:
+            return True
 
     def scan_mbs(self):
         self.log.info("检查会员卡")
