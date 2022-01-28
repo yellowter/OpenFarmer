@@ -226,7 +226,9 @@ class Farmer:
         self.log.info("开始转移NFT")
         assets = self.scan_assets()
         barley_list = []
+        barleyseed_list = []
         corn_list = []
+        cornseed_list = []
         fcoin_list = []
         milk_list = []
         log_text = ''
@@ -247,6 +249,12 @@ class Farmer:
                 # 牛奶
                 # milk_list.append({"asset_id": item.asset_id, "name": item.name, "cn_name": "牛奶"})
                 milk_list.append(item['asset_id'])
+            if item['template']['template_id'] == "298595":
+                # 大麦种子
+                barleyseed_list.append(item['asset_id'])
+            if item['template']['template_id'] == "298596":
+                # 玉米种子
+                cornseed_list.append(item['asset_id'])
 
         for accountItem in transfer_nft_config.transfer_list:
             transfer_asset_ids = []
@@ -286,8 +294,27 @@ class Farmer:
                 milk_list = []
                 self.log.info(f"【牛奶】需要转移{accountItem['transfer_milk']}个，牛奶数量不足，剩余{len(milk_list)}个将全部转移")
 
+            if 0 < accountItem['transfer_barleyseed'] <= len(barleyseed_list):
+                transfer_asset_ids.extend(barleyseed_list[0:accountItem['transfer_barleyseed']])
+                barleyseed_list = barleyseed_list[accountItem['transfer_barleyseed']:]
+                self.log.info(f"【大麦种子】转移{accountItem['transfer_barleyseed']}个")
+            elif 0 < accountItem['transfer_barleyseed'] and accountItem['transfer_barleyseed'] > len(barleyseed_list):
+                transfer_asset_ids.extend(barleyseed_list)
+                barleyseed_list = []
+                self.log.info(f"【大麦种子】需要转移{accountItem['transfer_barleyseed']}个，大麦种子数量不足，剩余{len(barleyseed_list)}个将全部转移")
+
+            if 0 < accountItem['transfer_cornseed'] <= len(cornseed_list):
+                transfer_asset_ids.extend(cornseed_list[0:accountItem['transfer_cornseed']])
+                cornseed_list = cornseed_list[accountItem['transfer_cornseed']:]
+                self.log.info(f"【大麦种子】转移{accountItem['transfer_cornseed']}个")
+            elif 0 < accountItem['transfer_cornseed'] and accountItem['transfer_cornseed'] > len(cornseed_list):
+                transfer_asset_ids.extend(cornseed_list)
+                cornseed_list = []
+                self.log.info(f"【大麦种子】需要转移{accountItem['transfer_cornseed']}个，大麦种子数量不足，剩余{len(cornseed_list)}个将全部转移")
+
             if len(transfer_asset_ids) > 0:
                 self.do_transfer(accountItem['reveive_account'], transfer_asset_ids)
+                time.sleep(2)
             else:
                 self.log.info("没有可转移的nft")
 
