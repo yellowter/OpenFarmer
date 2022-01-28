@@ -1,0 +1,11 @@
+list:
+- reveive_account: openfarmercn
+  transfer_fcoin: 0
+  transfer_corn: 0
+  transfer_barley: 1
+  transfer_milk: 0
+- reveive_account: fwwtothemoon
+  transfer_fcoin: 0
+  transfer_corn: 0
+  transfer_barley: 1
+  transfer_milk: 0
