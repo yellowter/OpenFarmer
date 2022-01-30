@@ -95,6 +95,7 @@ class Farmer:
         # 本轮开始时的资源数量
         self.resoure: Resoure = None
         self.token: Token = None
+        self.waxp_token = 0
 
     def close(self):
         if self.driver:
@@ -235,27 +236,70 @@ class Farmer:
         self.log.debug("fw_balance: {0}".format(balance))
         return balance
 
+    # 获取WAXP代币余额
+    def get_waxp_balance(self) -> Token:
+        url = self.url_rpc + "get_currency_balance"
+        post_data = {
+            "code": "eosio.token",
+            "account": self.wax_account,
+            "symbol": 'WAX'
+        }
+        resp = self.http.post(url, json=post_data)
+
+        self.log.debug("get_waxp_balance:{0}".format(resp.text))
+        resp = resp.json()
+        sp = resp[0].split(" ")
+        balance = Decimal(sp[0])
+        self.log.debug("waxp_balance: {0}".format(balance))
+        return balance
+
     # 转账
     def scan_transfer(self):
         self.log.info("开始转移资源")
         token = self.token
+        waxp_token = self.waxp_token
         for item in transfer_config.transfer_list:
             if token.fwf < item['transfer_food']:
-                self.log.info(f"账号【{item['account']}】FWF不足：钱包剩余FWF【{token.fwf}】，充值数【{item['transfer_food']}】 ")
-                continue
+                if token.fwf > 0:
+                    self.log.info(f"账号【{item['account']}】FWF不足：钱包剩余FWF【{token.fwf}】，将全部转移")
+                    item['transfer_food'] = token.fwf
+                else:
+                    self.log.info(f"账号【{item['account']}】FWF不足：钱包剩余FWF【{token.fwf}】，转移数【{item['transfer_food']}】 ")
             if token.fww < item['transfer_wood']:
-                self.log.info(f"账号【{item['account']}】FWW不足：钱包剩余FWW【{token.fww}】，充值数【{item['transfer_wood']}】 ")
-                continue
+                if token.fww > 0:
+                    self.log.info(f"账号【{item['account']}】FWW不足：钱包剩余FWW【{token.fww}】，将全部转移")
+                    item['transfer_wood'] = token.fww
+                else:
+                    self.log.info(f"账号【{item['account']}】FWW不足：钱包剩余FWW【{token.fww}】，转移数【{item['transfer_wood']}】 ")
             if token.fwg < item['transfer_gold']:
-                self.log.info(f"账号【{item['account']}】FWG不足：钱包剩余FWG【{token.fwg}】，充值数【{item['transfer_gold']}】 ")
+                if token.fwg > 0:
+                    self.log.info(f"账号【{item['account']}】FWG不足：钱包剩余FWG【{token.fwg}】，将全部转移")
+                    item['transfer_gold'] = token.fwg
+                else:
+                    self.log.info(f"账号【{item['account']}】FWG不足：钱包剩余FWG【{token.fwg}】，转移数【{item['transfer_gold']}】 ")
+            if waxp_token < item['transfer_waxp']:
+                if waxp_token > 0:
+                    self.log.info(f"账号【{item['account']}】WAXP不足：钱包剩余WAXP【{waxp_token}】，将全部转移")
+                    item['transfer_waxp'] = waxp_token
+                else:
+                    self.log.info(f"账号【{item['account']}】WAXP不足：钱包剩余WAXP【{waxp_token}】，转移数【{item['transfer_waxp']}】 ")
+
+            if item['transfer_food'] + item['transfer_gold'] + item['transfer_wood'] + item['transfer_waxp'] == 0:
+                self.log.info("转移的数量为0")
                 continue
-            self.log.info(f"=================转移资源给【{item['account']}】=================")
-            self.log.info(f"金币【{item['transfer_gold']}】 木头【{item['transfer_wood']}】 食物【{item['transfer_food']}】 ")
-            self.do_transfer(item['transfer_food'], item['transfer_gold'], item['transfer_wood'], item['account'])
-            token.fwf -= item['transfer_food']
-            token.fww -= item['transfer_wood']
-            token.fwg -= item['transfer_gold']
-            self.log.info(f"钱包剩余:FWG【{token.fwg}】 FWW【{token.fww}】 FWF【{token.fwf}】 ")
+            self.log.info(f"=================转移代币给【{item['account']}】=================")
+            if item['transfer_waxp'] > 0:
+                self.log.info(f"转移WAXP【{item['transfer_waxp']}】")
+                self.do_transfer_waxp(item['transfer_waxp'], item['account'])
+                waxp_token -= item['transfer_waxp']
+                self.log.info(f"钱包剩余:WAXP【{waxp_token}】")
+            if item['transfer_food'] + item['transfer_gold'] + item['transfer_wood'] > 0:
+                self.log.info(f"转移金币【{item['transfer_gold']}】 木头【{item['transfer_wood']}】 食物【{item['transfer_food']}】 ")
+                self.do_transfer(item['transfer_food'], item['transfer_gold'], item['transfer_wood'], item['account'])
+                token.fwf -= item['transfer_food']
+                token.fww -= item['transfer_wood']
+                token.fwg -= item['transfer_gold']
+                self.log.info(f"钱包剩余:FWG【{token.fwg}】 FWW【{token.fww}】 FWF【{token.fwf}】 ")
             self.log.info("================================================================")
 
         # self.do_transfer(transfer_food, transfer_gold, transfer_wood, account)
@@ -297,10 +341,42 @@ class Farmer:
         self.wax_transact(transaction)
         self.log.info("转账完成{0}".format(account))
 
+    # 转账
+    def do_transfer_waxp(self, waxp, account):
+        self.log.info("正在转移WAXP代币给【{0}】".format(account))
+        # format(1.23456, '.4f')
+        quantity = ''
+        if waxp > 0:
+            waxp = format(waxp, '.8f')
+            quantity = waxp + " WAX"
+
+        # quantities格式：1.0000 FWW
+        transaction = {
+            "actions": [{
+                "account": "eosio.token",
+                "name": "transfer",
+                "authorization": [{
+                    "actor": self.wax_account,
+                    "permission": "active",
+                }],
+                "data": {
+                    "from": self.wax_account,
+                    "to": account,
+                    "quantity": quantity,
+                    "memo": "openfarmer",
+                },
+            }],
+        }
+        self.wax_transact(transaction)
+        self.log.info("WAXP转账完成【{0}】".format(account))
+
     def scan_resource(self):
 
         self.token = self.get_fw_balance()
         self.log.info(f"主账号资源：FWG【{self.token.fwg}】 FWW【{self.token.fww}】 FWF【{self.token.fwf}】")
+        time.sleep(1)
+        self.waxp_token = self.get_waxp_balance()
+        self.log.info(f"主账号WAXP：【{self.waxp_token}】")
 
     def reset_before_scan(self):
         self.not_operational.clear()
@@ -337,12 +413,13 @@ class Farmer:
         status = Status.Continue
         try:
             self.reset_before_scan()
+            self.log.info("开始一轮扫描")
             self.scan_resource()
             time.sleep(cfg.req_interval)
 
             self.scan_transfer()
             time.sleep(cfg.req_interval)
-            self.log.info("程序运行结束")
+            self.log.info("结束一轮扫描")
 
         except TransactException as e:
             # self.log.exception("智能合约调用出错")
@@ -374,11 +451,14 @@ class Farmer:
         return status
 
     def run_forever(self):
-        status = self.scan_all()
-        if status == Status.Stop:
-            self.close()
-            self.log.info("程序已停止，请检查日志后手动重启程序")
-            return 1
+        while True:
+            status = self.scan_all()
+            if status == Status.Stop:
+                self.close()
+                self.log.info("程序已停止，请检查日志后手动重启程序")
+                return 1
+            # 1800秒（半小时）跑一次
+            time.sleep(1800)
 
 
 class transfer_config:

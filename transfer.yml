@@ -1,9 +1,11 @@
 list:
 - account: openfarmercn
+  transfer_waxp: 1
   transfer_wood: 1
   transfer_food: 1
   transfer_gold: 1
 - account: 4lrzu.wam
-  transfer_wood: 1
-  transfer_food: 1
-  transfer_gold: 1
+  transfer_waxp: 0
+  transfer_wood: 0
+  transfer_food: 0
+  transfer_gold: 0
