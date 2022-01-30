@@ -223,7 +223,7 @@ class Farmer:
 
     # 转账
     def scan_transfer(self):
-        self.log.info("开始转移NFT")
+        self.log.info("开始扫描NFT")
         assets = self.scan_assets()
         barley_list = []
         barleyseed_list = []
@@ -256,6 +256,9 @@ class Farmer:
                 # 玉米种子
                 cornseed_list.append(item['asset_id'])
 
+        self.log.info(f"查询完成【大麦{len(barley_list)}】【玉米{len(corn_list)}】【大麦种子{len(barleyseed_list)}】【玉米种子{len(cornseed_list)}】")
+        self.log.info(f"【农夫币{len(fcoin_list)}】【牛奶{len(milk_list)}】")
+        self.log.info("开始转移NFT")
         for accountItem in transfer_nft_config.transfer_list:
             transfer_asset_ids = []
             if 0 < accountItem['transfer_barley'] <= len(barley_list):
@@ -301,16 +304,17 @@ class Farmer:
             elif 0 < accountItem['transfer_barleyseed'] and accountItem['transfer_barleyseed'] > len(barleyseed_list):
                 transfer_asset_ids.extend(barleyseed_list)
                 barleyseed_list = []
-                self.log.info(f"【大麦种子】需要转移{accountItem['transfer_barleyseed']}个，大麦种子数量不足，剩余{len(barleyseed_list)}个将全部转移")
+                self.log.info(
+                    f"【大麦种子】需要转移{accountItem['transfer_barleyseed']}个，大麦种子数量不足，剩余{len(barleyseed_list)}个将全部转移")
 
             if 0 < accountItem['transfer_cornseed'] <= len(cornseed_list):
                 transfer_asset_ids.extend(cornseed_list[0:accountItem['transfer_cornseed']])
                 cornseed_list = cornseed_list[accountItem['transfer_cornseed']:]
-                self.log.info(f"【大麦种子】转移{accountItem['transfer_cornseed']}个")
+                self.log.info(f"【玉米种子】转移{accountItem['transfer_cornseed']}个")
             elif 0 < accountItem['transfer_cornseed'] and accountItem['transfer_cornseed'] > len(cornseed_list):
                 transfer_asset_ids.extend(cornseed_list)
                 cornseed_list = []
-                self.log.info(f"【大麦种子】需要转移{accountItem['transfer_cornseed']}个，大麦种子数量不足，剩余{len(cornseed_list)}个将全部转移")
+                self.log.info(f"【玉米种子】需要转移{accountItem['transfer_cornseed']}个，玉米种子数量不足，剩余{len(cornseed_list)}个将全部转移")
 
             if len(transfer_asset_ids) > 0:
                 self.do_transfer(accountItem['reveive_account'], transfer_asset_ids)
@@ -379,7 +383,7 @@ class Farmer:
         try:
             self.reset_before_scan()
             self.scan_transfer()
-            self.log.info("程序运行结束")
+            self.log.info("结束这一轮运行")
 
         except TransactException as e:
             if not e.retry:
@@ -410,11 +414,14 @@ class Farmer:
         return status
 
     def run_forever(self):
-        status = self.scan_all()
-        if status == Status.Stop:
-            self.close()
-            self.log.info("程序已停止，请检查日志后手动重启程序")
-            return 1
+        while True:
+            status = self.scan_all()
+            if status == Status.Stop:
+                self.close()
+                self.log.info("程序已停止，请检查日志后手动重启程序")
+                return 1
+            # 1800秒（半小时）跑一次
+            time.sleep(1800)
 
 
 class transfer_nft_config:
