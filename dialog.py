@@ -415,7 +415,7 @@ class Ui_Dialog(object):
         self.barleyseed_num.setText(_translate("Dialog", "8"))
         self.checkbox_buy_barley_seed.setText(_translate("Dialog", "自动买大麦种子"))
         self.checkbox_buy_corn_seed.setText(_translate("Dialog", "自动买玉米种子"))
-        self.label_24.setText(_translate("Dialog", "如果程序对你有帮助，欢迎打赏，支持我继续不断完善这个项目。感谢！ WAX钱包地址：openfarmercn "))
+        self.label_24.setText(_translate("Dialog", ""))
         self.checkbox_buy_food.setToolTip(_translate("Dialog", "自动买食物[玉米或大麦]（喂动物食物不够时，触发购买）"))
         self.checkbox_buy_food.setText(_translate("Dialog", "自动买食物"))
         self.label_23.setToolTip(_translate("Dialog", "一次购买的数量"))

@@ -205,6 +205,7 @@ class Farmer:
         self.inject_waxjs()
         ret = self.driver.execute_script("return window.wax_login();")
         self.log.info("window.wax_login(): {0}".format(ret))
+        self.driver.execute_script("window.document.title = '"+self.wax_account+"'")
         if not ret[0]:
             raise CookieExpireException("cookie失效")
 
